@@ -2,12 +2,14 @@
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <string.h>
+#include <stdbool.h>
 
 void handleErrors(void);
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
             unsigned char *iv, unsigned char *ciphertext);
 int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
             unsigned char *iv, unsigned char *plaintext);
+char *inputString(FILE* fp, size_t size);
 
 int main (void)
 {
@@ -23,48 +25,66 @@ int main (void)
 
     /* A 256 bit IV */
     unsigned char iv[32];
-    RAND_bytes(iv, sizeof(iv));
-    printf("The iv is:\n");
-    BIO_dump_fp (stdout, (const char *)iv, 256);
 
-    /* Message to be encrypted */
-    unsigned char *plaintext =
-        (unsigned char *)"The quick brown fox jumps over the lazy dog";
+    bool exit_loop = false;
+    while(!exit_loop) {
+        char exit_string[] = "exit program";
+        unsigned char *plaintext;
+        printf("Enter your message:\n");
+        plaintext = inputString(stdin, 10);
+        printf("You have entered:\n %s\n", plaintext);
+        if(strcmp(plaintext, exit_string) != 0){
+            RAND_bytes(iv, sizeof(iv));
+            printf("The iv is:\n");
+            BIO_dump_fp (stdout, (const char *)iv, 256);
+                /* Message to be encrypted */
+            size_t plaintext_size = strlen(plaintext) * 8;
+            printf("Size of plaintext is: %ld bits\n", plaintext_size);   
 
-    /*
-     * Buffer for ciphertext. Ensure the buffer is long enough for the
-     * ciphertext which may be longer than the plaintext, depending on the
-     * algorithm and mode.
-     */
-    unsigned char ciphertext[128];
+            /*
+            * Buffer for ciphertext. Ensure the buffer is long enough for the
+            * ciphertext which may be longer than the plaintext, depending on the
+            * algorithm and mode.
+            */
+            unsigned char ciphertext[plaintext_size];
 
-    /* Buffer for the decrypted text */
-    unsigned char decryptedtext[128];
+            /* Buffer for the decrypted text */
+            unsigned char decryptedtext[plaintext_size];
 
-    int decryptedtext_len, ciphertext_len;
+            int decryptedtext_len, ciphertext_len;
 
-    /* Encrypt the plaintext */
-    ciphertext_len = encrypt (plaintext, strlen ((char *)plaintext), key, iv,
-                              ciphertext);
+            /* Encrypt the plaintext */
+            ciphertext_len = encrypt (plaintext, strlen ((char *)plaintext), key, iv,
+                                    ciphertext);
 
-    /* Do something useful with the ciphertext here */
-    printf("Ciphertext is:\n");
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+            /* Do something useful with the ciphertext here */
+            printf("Ciphertext is:\n");
+            BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
 
-    /* Decrypt the ciphertext */
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv,
-                                decryptedtext);
+            /* Decrypt the ciphertext */
+            decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv,
+                                        decryptedtext);
 
-    /* Add a NULL terminator. We are expecting printable text */
-    decryptedtext[decryptedtext_len] = '\0';
+            /* Add a NULL terminator. We are expecting printable text */
+            decryptedtext[decryptedtext_len] = '\0';
 
-    /* Show the decrypted text */
-    printf("Decrypted text is:\n");
-    printf("%s\n", decryptedtext);
+            /* Show the decrypted text */
+            printf("Decrypted text is:\n");
+            printf("%s\n", decryptedtext);
+
+            free(plaintext);
+        }
+        else {
+            exit_loop = true;
+        }
+
+    }
 
 
     return 0;
 }
+
+
 
 
 void handleErrors(void)
@@ -162,4 +182,23 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
     EVP_CIPHER_CTX_free(ctx);
 
     return plaintext_len;
+}
+
+char *inputString(FILE* fp, size_t size){
+//The size is extended by the input with the value of the provisional
+    char *str;
+    int ch;
+    size_t len = 0;
+    str = realloc(NULL, sizeof(char)*size);//size is start size
+    if(!str)return str;
+    while(EOF!=(ch=fgetc(fp)) && ch != '\n'){
+        str[len++]=ch;
+        if(len==size){
+            str = realloc(str, sizeof(char)*(size+=16));
+            if(!str)return str;
+        }
+    }
+    str[len++]='\0';
+
+    return realloc(str, sizeof(char)*len);
 }
